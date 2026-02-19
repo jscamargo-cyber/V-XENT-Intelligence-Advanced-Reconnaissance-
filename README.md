@@ -1,5 +1,8 @@
+
+
 V-XENT es el motor de inteligencia de K-VØID Labs. Se especializa en la automatización de la fase de reconocimiento (Táctica MITRE TA0043) mediante la integración de múltiples fuentes de datos y técnicas de investigación de fuentes abiertas (OSINT). Este framework permite identificar vectores de ataque y superficies de exposición antes de que sean explotados.
 🧠 Capacidades de Inteligencia
+
 
     Reconocimiento Pasivo Multi-Fuente: Integración automatizada de APIs como Shodan, TheHarvester y VirusTotal para recolectar inteligencia sin interacción directa con el objetivo.
 
