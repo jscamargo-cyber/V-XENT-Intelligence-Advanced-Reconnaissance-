@@ -1,0 +1,8 @@
+services:
+  v-xent:
+    build: .
+    volumes:
+      - ./output:/app/output
+    env_file:
+      - .env
+    # To run a scan, use: docker compose run v-xent --target [target] --shodan --virustotal
