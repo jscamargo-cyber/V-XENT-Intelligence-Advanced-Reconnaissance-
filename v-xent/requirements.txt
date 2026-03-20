@@ -1,0 +1,6 @@
+shodan
+virustotal-api
+python-dotenv
+ratelimit
+requests
+colorama
