@@ -1,0 +1,11 @@
+{
+    "summary": {
+        "risk_level": "LOW",
+        "critical_findings": 0,
+        "total_vulnerabilities": 0
+    },
+    "details": {
+        "network": {},
+        "reputation": {}
+    }
+}

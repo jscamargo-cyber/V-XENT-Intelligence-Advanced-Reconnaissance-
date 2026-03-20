@@ -12,7 +12,7 @@ class Config:
     
     # Scanner Limits
     RATE_LIMIT_QUERIES = int(os.getenv("RATE_LIMIT_QUERIES", 1))
-    RATE_LIMIT_PERIOD = int(os.getenv("RATE_LIMIT_PERIOD", 1))
+    RATE_LIMIT_PERIOD = float(os.getenv("RATE_LIMIT_PERIOD", 1.1))
     
     # App Settings
     DEBUG = os.getenv("DEBUG", "False").lower() in ("true", "1", "t")
