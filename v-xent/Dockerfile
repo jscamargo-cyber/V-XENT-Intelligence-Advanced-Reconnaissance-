@@ -1,34 +1,53 @@
-# Use official Python slim image for a smaller footprint
-FROM python:3.10-slim
+# Stage 1: Build dependencies
+FROM python:3.10-slim AS builder
 
-# Set environment variables
+WORKDIR /app
+
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Set working directory
-WORKDIR /app
-
-# Install system dependencies needed for build or execution
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    python3-dev \
+    libffi-dev \
+    libpangocairo-1.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user for security
-RUN useradd -m vxent_user && chown -R vxent_user /app
-
-# Install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --user --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code
+# Stage 2: Final hardened image
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install only runtime dependencies (needed for weasyprint/pdf)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpangocairo-1.0-0 \
+    libharfbuzz0b \
+    libpango-1.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root system user
+RUN groupadd -r vxent && useradd -r -g vxent -s /sbin/nologin vxent_user
+
+# Copy installed python packages from builder
+COPY --from=builder /root/.local /home/vxent_user/.local
+ENV PATH=/home/vxent_user/.local/bin:$PATH
+
+# Copy application code
 COPY . .
 
-# Ensure output directory exists and is writable by the non-root user
-RUN mkdir -p output && chown -R vxent_user:vxent_user /app/output
+# Set up output directory with correct permissions
+RUN mkdir -p output && chown -R vxent_user:vxent /app/output
 
-# Switch to the non-root user
+# Task 4: Hardening measures
+# Ensure the user has access to their local bin
 USER vxent_user
 
-# Define the entrypoint and default command
+# Environment variables (to be overridden by compose/secrets)
+ENV SHODAN_API_KEY=""
+ENV VT_API_KEY=""
+
 ENTRYPOINT ["python", "main.py"]
 CMD ["--help"]

@@ -1,84 +1,81 @@
-# V-XENT: Intelligence Advanced Reconnaissance Framework
+# V-XENT: Intelligence Advanced Reconnaissance Framework [SECURE ED.]
 
-![Version](https://img.shields.io/badge/version-1.0.0-purple.svg)
+![Version](https://img.shields.io/badge/version-1.1.0--secure-purple.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)
 
-**V-XENT** (Virtual-X Intelligence Intelligence Intelligence-Enterprise-Network-Threat-Scanner) is a high-performance OSINT reconnaissance engine designed for red teams and security researchers. It automates the target discovery and profiling phase by correlating intelligence from multiple elite sources.
+**V-XENT** is a professional-grade OSINT reconnaissance engine designed for red teams and security researchers. This secure edition has been hardened for production use in enterprise environments and client audits.
 
 ---
 
 ## 🚀 Key Features
 
-*   **Shodan Intelligence**: Automated infrastructure discovery, port mapping, and service profiling.
-*   **VirusTotal Integration**: Real-time domain and IP reputation analysis using VT API v3.
-*   **Advanced Correlation Engine**: Intelligent matching across sources to identify high-risk assets and critical threats.
-*   **Professional Reporting**: Generates high-impact, "cyberpunk-styled" HTML reports and structured JSON for automated workflows.
-*   **Rate-Limit Management**: Built-in delays to respect API quotas (Shodan 1.1s, VT 15s).
+*   **Multi-Source Intelligence**: Automated infrastructure discovery via Shodan and reputation analysis via VirusTotal API v3.
+*   **Advanced Correlation Engine**: Intelligent cross-matching to identify high-risk assets and critical threats.
+*   **Production Hardened Reporting**: Secure HTML reports (Jinja2 + Bleach) and JSON outputs with **HMAC-SHA256 integrity signatures**.
+*   **Strict Input Validation**: Protects against injection attacks via deep target sanitization (IP, Domain, CIDR).
+*   **Enterprise Docker Stack**: Multi-stage build, non-root users, and read-only filesystem for maximum security.
+*   **Batch Scanning**: Support for processing multiple targets from file lists.
+
+---
+
+## ⚠️ SECURITY & BEST PRACTICES
+
+**This framework follows an "Impenetrable by Design" philosophy. To maintain maximum security:**
+
+1.  **API Key Management**: 
+    - **NEVER** commit your `.env` file. It is ignored by default in `.gitignore`.
+    - In production, use **Environment Variables** (e.g., `SHODAN_API_KEY`) or **Docker Secrets**.
+2.  **Report Integrity**: 
+    - Every JSON report includes an `integrity_hash`. You can verify this using the `IntegrityManager.verify_report()` utility to ensure data hasn't been tampered with.
+3.  **Deployment**: 
+    - Run V-XENT within its **Hardened Docker Container**. It runs as a non-privileged user and has a read-only root filesystem.
+4.  **Audit Logs**: 
+    - Use the `--json-log` flag to export structured data directly to your SIEM/SOAR platforms.
 
 ---
 
 ## 🛠️ Installation
 
 ### 1. Prerequisites
-- Python 3.10 or higher.
-- API keys for Shodan and VirusTotal.
+- Docker & Docker Compose **(Recommended)**
+- OR Python 3.10+ and system dependencies (libpangocairo, libharfbuzz).
 
-### 2. Setup
-Clone the repository and enter the project directory:
-
-```bash
-git clone https://github.com/your-username/V-XENT-Intelligence-Advanced-Reconnaissance-.git
-cd V-XENT-Intelligence-Advanced-Reconnaissance-/v-xent
-```
-
-Create and activate a virtual environment:
-```bash
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
----
-
-## 🔐 Configuration
-
-Copy the example environment file and add your API keys:
-
+### 2. Setup (Docker)
 ```bash
 cp .env.example .env
+# Edit .env with your keys
+docker compose build
 ```
 
-Edit the `.env` file:
-```env
-SHODAN_API_KEY=your_shodan_key_here
-VT_API_KEY=your_virustotal_key_here
-DEBUG=True
+### 3. Setup (Native)
+```bash
+pip install -r requirements.txt
+cp .env.example .env
 ```
 
 ---
 
 ## 🖥️ Usage
 
-Run the framework using the `main.py` entry point.
-
-### Scan a Domain
+### Scan a Single Target
 ```bash
+# Docker
+docker compose run v-xent --target 8.8.8.8 --shodan --virustotal
+
+# Native
 python3 main.py --target google.com --shodan --virustotal
 ```
 
-### Scan a Specific IP
+### Batch Scanning (Multiple Targets)
+Create a file `targets.txt` with one target per line:
 ```bash
-python3 main.py --target 8.8.8.8 --shodan --virustotal
+python3 main.py --file targets.txt --shodan --virustotal
 ```
 
-### Full Options
+### SIEM Integration (JSON Logs)
 ```bash
-python3 main.py --help
+python3 main.py --target 8.8.8.8 --shodan --virustotal --json-log
 ```
 
 ---
@@ -87,31 +84,21 @@ python3 main.py --help
 
 ```text
 v-xent/
-├── config/             # Framework configuration logic
-├── scanners/           # Scanner modules (Shodan, VirusTotal)
-├── intel_gathering/    # Intelligence correlation engine
-├── utils/              # Logging and reporting utilities
-├── output/             # Generated reports (JSON, HTML)
-├── main.py             # Main entry point
-└── requirements.txt    # Project dependencies
+├── config/             # Hardened config management
+├── scanners/           # Shodan & VT modules
+├── intel_gathering/    # Advanced Correlator
+├── utils/              # Validator, Crypto (HMAC), Reporter (Jinja2), Logger
+├── templates/          # Secure HTML report templates
+├── output/             # Persistent signed reports
+└── main.py             # Secure Entry Point
 ```
-
----
-
-## 🧪 Technologies Used
-
-- **Python 3.10+**: Core logic.
-- **Shodan Library**: Infrastructure search.
-- **Requests**: VT API v3 interaction.
-- **Colorama**: Stylized terminal output.
-- **Custom HTML/CSS**: Professional reporting system.
 
 ---
 
 ## ⚖️ Ethics & Disclaimer
 
-V-XENT is intended for ethical security research and authorized penetration testing only. The developers are not responsible for misuse or any damage caused by this tool. Use responsibly.
+V-XENT is intended for ethical security research and authorized penetration testing only. K-VØID Labs is not responsible for misuse. Use responsibly.
 
 ---
 
-*"Intelligence is the first line of defense."* - **K-VØID Labs**
+*"Intelligence is the first line of defense."* - **V-XENT Framework [SECURE]**

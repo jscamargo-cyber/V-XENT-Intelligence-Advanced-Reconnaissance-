@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>V-XENT Intel Report - {{ target }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&family=Outfit:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #9147ff;
+            --secondary: #00ff9d;
+            --bg: #0b0b0d;
+            --surface: #1a1a1f;
+            --text: #ffffff;
+            --text-muted: #a1a1aa;
+            --risk-color: {{ risk_color }};
+            --risk-bg: {{ risk_bg }};
+        }
+        
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 40px 20px;
+            line-height: 1.6;
+        }
+        
+        .report-container {
+            max-width: 1000px;
+            margin: auto;
+            background: var(--surface);
+            border: 1px solid #333;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+        }
+        
+        .header {
+            padding: 40px;
+            background: linear-gradient(135deg, #121214 0%, #1a1a1f 100%);
+            border-bottom: 2px solid var(--primary);
+            position: relative;
+        }
+        
+        .header h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.5em;
+            margin: 0;
+            color: var(--primary);
+            letter-spacing: -2px;
+        }
+        
+        .metadata {
+            margin-top: 10px;
+            color: var(--text-muted);
+            font-size: 0.9em;
+        }
+        
+        .risk-hero {
+            display: flex;
+            align-items: center;
+            padding: 30px 40px;
+            background: var(--risk-bg);
+            border-bottom: 1px solid #333;
+        }
+        
+        .risk-value {
+            font-size: 3em;
+            font-weight: 700;
+            color: var(--risk-color);
+            margin-right: 20px;
+            text-shadow: 0 0 20px var(--risk-color);
+        }
+        
+        .risk-label {
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 1.2em;
+        }
+        
+        .content { padding: 40px; }
+        
+        .section { margin-bottom: 40px; }
+        
+        h2 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.5em;
+            border-left: 4px solid var(--primary);
+            padding-left: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .insight-card {
+            background: rgba(255,255,255,0.03);
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid var(--secondary);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #2a2a2e;
+        }
+        
+        th {
+            background: rgba(145, 71, 255, 0.1);
+            color: var(--primary);
+            font-weight: 700;
+        }
+        
+        .tag {
+            display: inline-block;
+            padding: 4px 10px;
+            background: var(--primary);
+            border-radius: 20px;
+            font-size: 0.75em;
+            margin: 2px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .stat-card {
+            background: #121214;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #2a2a2e;
+            text-align: center;
+        }
+        
+        .stat-val { font-size: 1.8em; font-weight: 700; color: var(--primary); }
+        .stat-lbl { font-size: 0.8em; color: var(--text-muted); text-transform: uppercase; }
+        
+        footer {
+            padding: 30px;
+            text-align: center;
+            background: #0e0e10;
+            color: #555;
+            font-size: 0.8em;
+        }
+    </style>
+</head>
+<body>
+    <div class="report-container">
+        <div class="header">
+            <h1>V-XENT INTEL ENGINE</h1>
+            <div class="metadata">
+                <span>TARGET: <strong>{{ target }}</strong></span> | 
+                <span>TIMESTAMP: {{ timestamp }}</span>
+            </div>
+        </div>
+        
+        <div class="risk-hero">
+            <div class="risk-value">{{ risk_level }}</div>
+            <div class="risk-label">Nivel de Riesgo Global Detectado</div>
+        </div>
+        
+        <div class="content">
+            <div class="section">
+                <h2>Métricas de Amenazas</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-val">{{ total_detections }}</div>
+                        <div class="stat-lbl">Detecciones Totales</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-val">{{ critical_findings }}</div>
+                        <div class="stat-lbl">Hallazgos Críticos</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-val">{{ risk_score }}%</div>
+                        <div class="stat-lbl">Score de Amenaza</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Inteligencia y Insights Correlacionados</h2>
+                {% for insight in insights %}
+                <div class="insight-card">[!] {{ insight }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="section">
+                <h2>Análisis de Reputación (VT)</h2>
+                <table>
+                    <tr><th>Atributo</th><th>Resultado</th></tr>
+                    <tr><td>Score VT</td><td>{{ vt.reputation_score }}</td></tr>
+                    <tr><td>ASN / Owner</td><td>{{ vt.asn }} - {{ vt.as_owner }}</td></tr>
+                </table>
+            </div>
+
+            <div class="section">
+                <h2>Infraestructura Detectada (Shodan)</h2>
+                <table>
+                    <thead>
+                        <tr><th>IP</th><th>Puerto/Servicio</th><th>Org</th><th>Localización</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for match in shodan_matches %}
+                        <tr>
+                            <td><strong>{{ match.ip }}</strong></td>
+                            <td><span class="tag">{{ match.ports }}</span></td>
+                            <td>{{ match.org }}</td>
+                            <td>{{ match.location }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <footer>
+            GENERATE BY V-XENT-IAR FRAMEWORK v{{ version }} | &copy; 2026 Inteligencia de Reconocimiento Avanzado
+        </footer>
+    </div>
+</body>
+</html>

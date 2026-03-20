@@ -1,23 +1,26 @@
-venv/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-.env
-.venv
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
+# Exclude everything by default
+*
+
+# Include only what we need
+!config/
+!scanners/
+!intel_gathering/
+!utils/
+!templates/
+!main.py
+!requirements.txt
+!Dockerfile
+!docker-compose.yml
+!README.md
+!.env.example
+
+# Exclude potential sensitive or unnecessary files even if in included dirs
+**/*.pyc
+**/__pycache__
+**/.env
+**/venv
+**/output/*
+!output/.gitkeep
 .git/
 .gitignore
-output/
-*.html
-*.json
+.dockerignore

@@ -1,8 +1,30 @@
 services:
   v-xent:
     build: .
+    image: v-xent:latest
+    container_name: v-xent-secure
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /home/vxent_user/.local
     volumes:
-      - ./output:/app/output
-    env_file:
-      - .env
-    # To run a scan, use: docker compose run v-xent --target [target] --shodan --virustotal
+      - ./output:/app/output:rw
+      - ./.env:/app/.env:ro
+    # For production use, or Docker Secrets:
+    # secrets:
+    #   - shodan_key
+    #   - vt_key
+    environment:
+      - SHODAN_API_KEY=${SHODAN_API_KEY}
+      - VT_API_KEY=${VT_API_KEY}
+    restart: "no"
+
+# secrets:
+#   shodan_key:
+#     file: ./shodan.key
+#   vt_key:
+#     file: ./vt.key

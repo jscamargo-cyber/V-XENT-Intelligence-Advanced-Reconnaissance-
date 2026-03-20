@@ -2,11 +2,16 @@ import os
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+# override=False ensures system/Docker environment variables take higher precedence
+load_dotenv(override=False)
 
 class Config:
-    """Configuration class for V-XENT Framework."""
+    """
+    Framework configuration management.
+    Loads settings from environment variables and provides defaults.
+    """
     
+    # API Keys
     SHODAN_API_KEY = os.getenv("SHODAN_API_KEY")
     VT_API_KEY = os.getenv("VT_API_KEY")
     
@@ -16,7 +21,8 @@ class Config:
     
     # App Settings
     DEBUG = os.getenv("DEBUG", "False").lower() in ("true", "1", "t")
-    VERSION = "1.0.0"
+    VERSION = "1.1.0-secure"
+    
     BANNER = r"""
     __     __     __   _______ _   _ _______ 
     \ \   / /     \ \ / /  ___| \ | |__   __|
@@ -24,20 +30,18 @@ class Config:
       \   / |_____| > < |  __|| . ` |  | |   
        | |         / . \| |___| |\  |  | |   
        |_|        /_/ \_\_____|_| \_|  |_|   
-    Intelligence Advanced Reconnaissance
+    Intelligence Advanced Reconnaissance [SECURE]
     """
 
     @classmethod
     def validate(cls):
-        """Validate that essential API keys are present."""
+        """
+        Validates that required configuration is present.
+        Returns a list of missing required environment variables.
+        """
         missing = []
         if not cls.SHODAN_API_KEY:
             missing.append("SHODAN_API_KEY")
         if not cls.VT_API_KEY:
             missing.append("VT_API_KEY")
-        
-        if missing:
-            print(f"[!] Warning: Missing environment variables: {', '.join(missing)}")
-            print("[!] Some modules may not work correctly.")
-            return False
-        return True
+        return missing

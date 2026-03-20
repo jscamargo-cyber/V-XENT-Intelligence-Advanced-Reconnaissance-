@@ -1,288 +1,132 @@
 import os
 import json
 from datetime import datetime
+from pathlib import Path
+import bleach
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+from config.config import Config
+from utils.logger import setup_logger
+
+logger = setup_logger("reporter")
 
 class Reporter:
     """
-    Generates professional-grade OSINT reports in HTML and JSON.
-    Focused on rich aesthetics and clear intelligence communication.
+    Security-hardened Reporter for V-XENT.
+    Prevents XSS via Bleach/Jinja2 and Path Traversal via Pathlib.
     """
     
     def __init__(self, output_dir="output"):
-        self.output_dir = output_dir
-        if not os.path.exists(self.output_dir):
-            os.makedirs(self.output_dir)
+        # Task 3: Use Pathlib and resolve to prevent Path Traversal
+        self.base_dir = Path(__file__).parent.parent.resolve()
+        self.output_dir = (self.base_dir / output_dir).resolve()
+        
+        # Ensure output directory is within the project root
+        if not str(self.output_dir).startswith(str(self.base_dir)):
+            logger.critical(f"Tentativa de Path Traversal detectada en OUTPUT_DIR: {output_dir}")
+            raise ValueError("Directorio de salida inválido")
+
+        if not self.output_dir.exists():
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Task 2: Setup Jinja2 with autoescaping
+        template_path = self.base_dir / "templates"
+        self.jinja_env = Environment(
+            loader=FileSystemLoader(str(template_path)),
+            autoescape=select_autoescape(['html', 'xml'])
+        )
+
+    def _sanitize_data(self, data):
+        """
+        Recursively sanitizes all strings in a dictionary/list using Bleach.
+        Task 2: Eliminación total de XSS.
+        """
+        if isinstance(data, dict):
+            return {k: self._sanitize_data(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            return [self._sanitize_data(i) for i in data]
+        elif isinstance(data, str):
+            # Strip all tags by default for report data
+            return bleach.clean(data, tags=[], strip=True)
+        return data
 
     def generate_html(self, report_data, target):
         """
-        Generates a premium, visually appealing HTML report.
+        Generates a secure, professional HTML report using Jinja2 and Bleach.
         """
+        logger.info(f"Generando reporte seguro para: {target}")
+        
+        # Task 2: Sanitize all input data before rendering
+        clean_data = self._sanitize_data(report_data)
+        clean_target = bleach.clean(target, tags=[], strip=True)
+        
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         file_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
-        summary = report_data.get("summary", {})
+        summary = clean_data.get("summary", {})
         risk_level = summary.get("risk_level", "BAJO")
-        risk_score = summary.get("risk_score", 0)
         
-        # Color mapping for risk levels
+        # Risk levels styling
         risk_config = {
             "BAJO": {"color": "#00ff9d", "bg": "rgba(0, 255, 157, 0.1)"},
             "MEDIO": {"color": "#ffcc00", "bg": "rgba(255, 204, 0, 0.1)"},
             "ALTO": {"color": "#ff3b3b", "bg": "rgba(255, 59, 59, 0.1)"},
             "CRÍTICO": {"color": "#ff00ff", "bg": "rgba(255, 0, 255, 0.1)"}
         }
-        
         cfg = risk_config.get(risk_level, risk_config["BAJO"])
-        
-        # HTML Narrative construction
-        html_content = f"""
-        <!DOCTYPE html>
-        <html lang="es">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>V-XENT Intel Report - {target}</title>
-            <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&family=Outfit:wght@300;400;700&display=swap" rel="stylesheet">
-            <style>
-                :root {{
-                    --primary: #9147ff;
-                    --secondary: #00ff9d;
-                    --bg: #0b0b0d;
-                    --surface: #1a1a1f;
-                    --text: #ffffff;
-                    --text-muted: #a1a1aa;
-                    --risk-color: {cfg['color']};
-                    --risk-bg: {cfg['bg']};
-                }}
-                
-                body {{
-                    font-family: 'Outfit', sans-serif;
-                    background-color: var(--bg);
-                    color: var(--text);
-                    margin: 0;
-                    padding: 40px 20px;
-                    line-height: 1.6;
-                }}
-                
-                .report-container {{
-                    max-width: 1000px;
-                    margin: auto;
-                    background: var(--surface);
-                    border: 1px solid #333;
-                    border-radius: 16px;
-                    overflow: hidden;
-                    box-shadow: 0 20px 50px rgba(0,0,0,0.8);
-                }}
-                
-                .header {{
-                    padding: 40px;
-                    background: linear-gradient(135deg, #121214 0%, #1a1a1f 100%);
-                    border-bottom: 2px solid var(--primary);
-                    position: relative;
-                }}
-                
-                .header h1 {{
-                    font-family: 'JetBrains Mono', monospace;
-                    font-size: 2.5em;
-                    margin: 0;
-                    color: var(--primary);
-                    letter-spacing: -2px;
-                }}
-                
-                .metadata {{
-                    margin-top: 10px;
-                    color: var(--text-muted);
-                    font-size: 0.9em;
-                }}
-                
-                .risk-hero {{
-                    display: flex;
-                    align-items: center;
-                    padding: 30px 40px;
-                    background: var(--risk-bg);
-                    border-bottom: 1px solid #333;
-                }}
-                
-                .risk-value {{
-                    font-size: 3em;
-                    font-weight: 700;
-                    color: var(--risk-color);
-                    margin-right: 20px;
-                    text-shadow: 0 0 20px var(--risk-color);
-                }}
-                
-                .risk-label {{
-                    text-transform: uppercase;
-                    letter-spacing: 2px;
-                    font-size: 1.2em;
-                }}
-                
-                .content {{ padding: 40px; }}
-                
-                .section {{ margin-bottom: 40px; }}
-                
-                h2 {{
-                    font-family: 'JetBrains Mono', monospace;
-                    font-size: 1.5em;
-                    border-left: 4px solid var(--primary);
-                    padding-left: 15px;
-                    margin-bottom: 20px;
-                }}
-                
-                .insight-card {{
-                    background: rgba(255,255,255,0.03);
-                    padding: 15px 20px;
-                    border-radius: 8px;
-                    margin-bottom: 10px;
-                    border-left: 4px solid var(--secondary);
-                }}
-                
-                table {{
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-top: 20px;
-                }}
-                
-                th, td {{
-                    padding: 15px;
-                    text-align: left;
-                    border-bottom: 1px solid #2a2a2e;
-                }}
-                
-                th {{
-                    background: rgba(145, 71, 255, 0.1);
-                    color: var(--primary);
-                    font-weight: 700;
-                }}
-                
-                .tag {{
-                    display: inline-block;
-                    padding: 4px 10px;
-                    background: var(--primary);
-                    border-radius: 20px;
-                    font-size: 0.75em;
-                    margin: 2px;
-                }}
-                
-                .stats-grid {{
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                    gap: 20px;
-                }}
-                
-                .stat-card {{
-                    background: #121214;
-                    padding: 20px;
-                    border-radius: 12px;
-                    border: 1px solid #2a2a2e;
-                    text-align: center;
-                }}
-                
-                .stat-val {{ font-size: 1.8em; font-weight: 700; color: var(--primary); }}
-                .stat-lbl {{ font-size: 0.8em; color: var(--text-muted); text-transform: uppercase; }}
-                
-                footer {{
-                    padding: 30px;
-                    text-align: center;
-                    background: #0e0e10;
-                    color: #555;
-                    font-size: 0.8em;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="report-container">
-                <div class="header">
-                    <h1>V-XENT INTEL ENGINE</h1>
-                    <div class="metadata">
-                        <span>TARGET: <strong>{target}</strong></span> | 
-                        <span>TIMESTAMP: {timestamp}</span>
-                    </div>
-                </div>
-                
-                <div class="risk-hero">
-                    <div class="risk-value">{risk_level}</div>
-                    <div class="risk-label">Nivel de Riesgo Global Detectado</div>
-                </div>
-                
-                <div class="content">
-                    <div class="section">
-                        <h2>Métricas de Amenazas</h2>
-                        <div class="stats-grid">
-                            <div class="stat-card">
-                                <div class="stat-val">{summary.get('total_detections', 0)}</div>
-                                <div class="stat-lbl">Detecciones Totales</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-val">{summary.get('critical_findings', 0)}</div>
-                                <div class="stat-lbl">Hallazgos Críticos</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-val">{risk_score}%</div>
-                                <div class="stat-lbl">Score de Amenaza</div>
-                            </div>
-                        </div>
-                    </div>
 
-                    <div class="section">
-                        <h2>Inteligencia y Insights Correlacionados</h2>
-                        {"".join([f'<div class="insight-card">[!] {insight}</div>' for insight in summary.get('insights', [])])}
-                    </div>
-
-                    <div class="section">
-                        <h2>Análisis de Reputación (VT)</h2>
-                        <table>
-                            <tr><th>Atributo</th><th>Resultado</th></tr>
-                            <tr><td>Score VT</td><td>{report_data.get("raw_data", {}).get("virustotal", {}).get("reputation_score", "N/A")}</td></tr>
-                            <tr><td>ASN / Owner</td><td>{report_data.get("raw_data", {}).get("virustotal", {}).get("asn", "N/A")} - {report_data.get("raw_data", {}).get("virustotal", {}).get("as_owner", "N/A")}</td></tr>
-                        </table>
-                    </div>
-
-                    <div class="section">
-                        <h2>Infraestructura Detectada (Shodan)</h2>
-                        <table>
-                            <thead>
-                                <tr><th>IP</th><th>Puerto/Servicio</th><th>Org</th><th>Localización</th></tr>
-                            </thead>
-                            <tbody>
-        """
-        
-        shodan_data = report_data.get("raw_data", {}).get("shodan", {})
-        matches = []
-        if isinstance(shodan_data, dict):
-            matches = shodan_data.get("matches", [])
-            if not matches and shodan_data.get("ip"):
-                matches = [shodan_data]
+        # Prepare context for Jinja2
+        shodan_raw = clean_data.get("raw_data", {}).get("shodan", {})
+        shodan_matches = []
+        if isinstance(shodan_raw, dict):
+            raw_matches = shodan_raw.get("matches", [])
+            if not raw_matches and shodan_raw.get("ip"):
+                raw_matches = [shodan_raw]
             
-        for match in matches:
-            port = match.get("port") or ", ".join(map(str, match.get("ports", [])))
-            location = match.get("location", {}).get("country_name", "N/A")
-            html_content += f"""
-                                <tr>
-                                    <td><strong>{match.get("ip")}</strong></td>
-                                    <td><span class="tag">{port}</span></td>
-                                    <td>{match.get("org", "N/A")}</td>
-                                    <td>{location}</td>
-                                </tr>
-            """
+            for m in raw_matches:
+                shodan_matches.append({
+                    "ip": m.get("ip", "N/A"),
+                    "ports": m.get("port") or ", ".join(map(str, m.get("ports", []))),
+                    "org": m.get("org", "N/A"),
+                    "location": m.get("location", {}).get("country_name", "N/A")
+                })
+
+        context = {
+            "target": clean_target,
+            "timestamp": timestamp,
+            "risk_level": risk_level,
+            "risk_score": summary.get("risk_score", 0),
+            "risk_color": cfg["color"],
+            "risk_bg": cfg["bg"],
+            "total_detections": summary.get("total_detections", 0),
+            "critical_findings": summary.get("critical_findings", 0),
+            "insights": summary.get("insights", []),
+            "vt": clean_data.get("raw_data", {}).get("virustotal", {}),
+            "shodan_matches": shodan_matches,
+            "version": Config.VERSION
+        }
+
+        try:
+            template = self.jinja_env.get_template("report.html")
+            html_output = template.render(context)
             
-        html_content += """
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                
-                <footer>
-                    GENERATE BY V-XENT-IAR FRAMEWORK v1.0.0 | &copy; 2026 Inteligencia de Reconocimiento Avanzado
-                </footer>
-            </div>
-        </body>
-        </html>
-        """
-        
-        filename = f"report_{target.replace('.', '_')}_{file_timestamp}.html"
-        file_path = os.path.join(self.output_dir, filename)
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(html_content)
-        
-        return file_path
+            # Task 3: Secure Filename generation
+            safe_target = re.sub(r'[^a-zA-Z0-9_\-]', '_', clean_target)
+            filename = f"report_{safe_target}_{file_timestamp}.html"
+            
+            # Using pathlib ensures the file is created in the correct location
+            file_path = (self.output_dir / filename).resolve()
+            
+            # Final check to prevent path traversal on write
+            if not str(file_path).startswith(str(self.output_dir)):
+                raise ValueError("Path Traversal detectada en generación de nombre de archivo")
+
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(html_output)
+            
+            return str(file_path)
+            
+        except Exception as e:
+            logger.error(f"Error crítico en generación de reporte: {e}")
+            raise
+
+import re
