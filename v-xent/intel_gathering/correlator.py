@@ -1,67 +1,120 @@
 from utils.logger import setup_logger
 
+# Initialize logger for this module
 logger = setup_logger("correlator")
 
-class IntelCorrelator:
+class ResultsCorrelator:
     """
-    Correlates intelligence data from multiple sources (Shodan, VirusTotal).
-    Generates a unified risk assessment.
+    Correlates intelligence data from Shodan and VirusTotal.
+    Analyzes overlaps, open ports, and threat detections to provide a unified risk assessment.
     """
     
     def __init__(self):
-        self.findings = {}
+        self.risk_levels = {
+            "BAJO": "LOW",
+            "MEDIO": "MEDIUM",
+            "ALTO": "HIGH",
+            "CRÍTICO": "CRITICAL"
+        }
 
     def correlate(self, shodan_results=None, vt_results=None):
         """
-        Merge results from different scanners into a single intelligence report.
+        Consolidates results from different sources into a single intelligence report.
         """
         report = {
             "summary": {
-                "risk_level": "LOW",
+                "risk_level": "BAJO",
+                "risk_score": 0,  # 0-100 scale
                 "critical_findings": 0,
-                "total_vulnerabilities": 0
+                "total_detections": 0,
+                "insights": []
             },
-            "details": {
-                "network": {},
-                "reputation": {}
+            "correlations": {
+                "overlapping_ips": [],
+                "suspicious_ports": [],
+                "threat_matches": []
+            },
+            "raw_data": {
+                "shodan": shodan_results,
+                "virustotal": vt_results
             }
         }
 
-        # Process Shodan Data
-        if shodan_results and "error" not in shodan_results:
-            logger.info("Correlacionando datos de Shodan...")
-            report["details"]["network"] = {
-                "total_matches": shodan_results.get("total", 0),
-                "hosts": shodan_results.get("matches", [])
-            }
-            # Count vulnerabilities if present in matches
-            vulnerabilities = []
-            for match in shodan_results.get("matches", []):
-                # If we had used get_host_info, we'd have more vulns here
-                pass
-            report["summary"]["total_vulnerabilities"] = len(vulnerabilities)
-
-        # Process VirusTotal Data
+        # Analyze VirusTotal Results
         if vt_results and "error" not in vt_results:
-            logger.info("Correlacionando datos de VirusTotal...")
-            report["details"]["reputation"] = vt_results
-            if vt_results.get("malicious_count", 0) > 0:
+            malicious = vt_results.get("malicious_count", 0)
+            suspicious = vt_results.get("suspicious_count", 0)
+            
+            report["summary"]["total_detections"] += malicious
+            if malicious > 0:
+                report["summary"]["risk_score"] += (malicious * 20)
                 report["summary"]["critical_findings"] += 1
-                report["summary"]["risk_level"] = "HIGH"
-            elif vt_results.get("suspicious_count", 0) > 0:
-                report["summary"]["risk_level"] = "MEDIUM"
+                report["summary"]["insights"].append(f"VirusTotal detectó {malicious} motores marcando el objetivo como malicioso.")
+            elif suspicious > 0:
+                report["summary"]["risk_score"] += 15
+                report["summary"]["insights"].append("VirusTotal detectó actividad sospechosa.")
 
-        # Logic for combined risk
-        if report["summary"]["total_vulnerabilities"] > 5 and report["summary"]["risk_level"] == "MEDIUM":
-            report["summary"]["risk_level"] = "HIGH"
+        # Analyze Shodan Results
+        if shodan_results and "error" not in shodan_results:
+            # If search results (list of matches)
+            matches = shodan_results.get("matches", [])
+            # If single host info
+            if not matches and shodan_results.get("ip"):
+                matches = [shodan_results]
+            
+            ports_found = set()
+            for match in matches:
+                ip = match.get("ip")
+                ports = match.get("ports", [])
+                if not ports and match.get("port"):
+                    ports = [match.get("port")]
+                
+                for p in ports:
+                    ports_found.add(p)
+                    # Detect suspicious/sensitive ports
+                    if p in [21, 22, 23, 445, 3389, 5900]:
+                        report["correlations"]["suspicious_ports"].append({"ip": ip, "port": p})
+                        report["summary"]["risk_score"] += 10
+            
+            if report["correlations"]["suspicious_ports"]:
+                report["summary"]["insights"].append(f"Se detectaron {len(report['correlations']['suspicious_ports'])} puertos sensibles abiertos (ej. SSH, RDP, SMB).")
 
-        logger.info(f"Correlación completada. Nivel de riesgo detectado: {report['summary']['risk_level']}")
+            # Look for overlaps if Target in VT matches IPs in Shodan
+            if vt_results and vt_results.get("target"):
+                target_ip = vt_results.get("target")
+                for match in matches:
+                    if match.get("ip") == target_ip:
+                        report["correlations"]["overlapping_ips"].append(target_ip)
+                        if vt_results.get("malicious_count", 0) > 0:
+                            report["summary"]["risk_score"] += 30
+                            report["summary"]["insights"].append(f"¡ALERTA!: La IP {target_ip} identificada por Shodan está marcada como MALICIOSA en VirusTotal.")
+
+        # Normalize Risk Level
+        score = report["summary"]["risk_score"]
+        if score >= 80:
+            report["summary"]["risk_level"] = "ALTO"
+        elif score >= 40:
+            report["summary"]["risk_level"] = "MEDIO"
+        else:
+            report["summary"]["risk_level"] = "BAJO"
+
+        logger.info(f"Correlación finalizada. Riesgo: {report['summary']['risk_level']} (Score: {score})")
         return report
 
     def get_summary_text(self, report):
-        """Returns a string summary for CLI output."""
-        risk = report["summary"]["risk_level"]
-        findings = report["summary"]["critical_findings"]
-        vulns = report["summary"]["total_vulnerabilities"]
-        
-        return f"\n--- RESUMEN DE INTELIGENCIA ---\nNivel de Riesgo: {risk}\nHallazgos Críticos: {findings}\nVulnerabilidades Totales: {vulns}\n-------------------------------"
+        """
+        Returns a human-readable summary for console display.
+        """
+        summary = report["summary"]
+        text = f"\n{'='*40}\n"
+        text += f" RESUMEN DE INTELIGENCIA CORRELACIONADA\n"
+        text += f"{'='*40}\n"
+        text += f" Nivel de Riesgo: {summary['risk_level']}\n"
+        text += f" Detecciones Totales: {summary['total_detections']}\n"
+        text += f" Hallazgos Críticos: {summary['critical_findings']}\n"
+        text += f"{'-'*40}\n"
+        text += " INSIGHTS:\n"
+        for insight in summary["insights"]:
+            text += f" [!] {insight}\n"
+        text += f"{'='*40}\n"
+        return text

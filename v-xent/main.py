@@ -2,13 +2,14 @@ import argparse
 import sys
 import os
 import json
+from datetime import datetime
 
 from config.config import Config
 from utils.logger import setup_logger
 from scanners.shodan_scanner import ShodanScanner
 from scanners.virustotal_scanner import VirusTotalScanner
 import re
-from intel_gathering.correlator import IntelCorrelator
+from intel_gathering.correlator import ResultsCorrelator
 from utils.reporter import Reporter
 
 def get_args():
@@ -113,13 +114,14 @@ def main():
     # Correlation and Intelligence Gathering
     if shodan_results_data or vt_results_data:
         logger.info("[*] Correlacionando resultados para Inteligencia Unificada...")
-        correlator = IntelCorrelator()
+        correlator = ResultsCorrelator()
         
         intel_report = correlator.correlate(shodan_results_data, vt_results_data)
         print(correlator.get_summary_text(intel_report))
         
         # Save Unified Report (JSON)
-        unified_file = f"{args.output}_unified.json"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        unified_file = f"{args.output}_unified_{timestamp}.json"
         with open(unified_file, "w") as f:
             json.dump(intel_report, f, indent=4)
         logger.info(f"Reporte de inteligencia unificado guardado en {unified_file}")
