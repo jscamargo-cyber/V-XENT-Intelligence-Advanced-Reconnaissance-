@@ -6,7 +6,7 @@ import json
 from config.config import Config
 from utils.logger import setup_logger
 from scanners.shodan_scanner import ShodanScanner
-from scanners.vt_scanner import VirusTotalScanner
+from scanners.virustotal_scanner import VirusTotalScanner
 import re
 from intel_gathering.correlator import IntelCorrelator
 from utils.reporter import Reporter
