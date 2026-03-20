@@ -55,19 +55,36 @@ def main():
     if args.shodan:
         logger.info(f"[*] Iniciando módulo Shodan para: {args.target}")
         shodan_scanner = ShodanScanner()
-        shodan_results_data = shodan_scanner.search(args.target)
+        
+        # Determine if target is IP or query/domain
+        ip_pattern = r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$"
+        is_ip = re.match(ip_pattern, args.target)
+        
+        if is_ip:
+            shodan_results_data = shodan_scanner.get_host_info(args.target)
+        else:
+            shodan_results_data = shodan_scanner.search(args.target)
         
         if "error" not in shodan_results_data:
-            print(f"\n[+] Resultados de Shodan ({shodan_results_data['total']} encontrados):")
-            for match in shodan_results_data["matches"][:10]:  # Mostrar solo los 10 primeros por consola
-                print(f"    - IP: {match['ip']} | Puerto: {match['port']} | Org: {match['org']}")
+            if is_ip:
+                print(f"\n[+] Información de Host Shodan para {args.target}:")
+                print(f"    - Org: {shodan_results_data.get('org', 'N/A')}")
+                print(f"    - OS: {shodan_results_data.get('os', 'N/A')}")
+                print(f"    - Puertos: {', '.join(map(str, shodan_results_data.get('ports', [])))}")
+                if shodan_results_data.get('vulns'):
+                    print(f"    - Vulnerabilidades: {', '.join(shodan_results_data['vulns'])}")
+            else:
+                print(f"\n[+] Resultados de Búsqueda Shodan ({shodan_results_data['total']} encontrados):")
+                for match in shodan_results_data["matches"][:10]:  # Mostrar solo los 10 primeros por consola
+                    print(f"    - IP: {match['ip']} | Puerto: {match['port']} | Org: {match['org']}")
             
-            # Guardar resultados parciales
+            # Guardar resultados
             output_file = f"{args.output}_shodan.json"
             with open(output_file, "w") as f:
                 json.dump(shodan_results_data, f, indent=4)
+            logger.info(f"Resultados de Shodan guardados en {output_file}")
         else:
-            logger.error(f"Error en escaneo de Shodan: {shodan_results_data['error']}")
+            logger.error(f"Error en módulo Shodan: {shodan_results_data['error']}")
     
     if args.virustotal:
         logger.info(f"[*] Iniciando módulo VirusTotal para: {args.target}")

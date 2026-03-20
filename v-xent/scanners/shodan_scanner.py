@@ -1,140 +1,134 @@
 import shodan
 import time
 import json
-from ratelimit import limits, sleep_and_retry
 from config.config import Config
 from utils.logger import setup_logger
 
+# Initialize logger for this module
 logger = setup_logger("shodan_scanner")
 
 class ShodanScanner:
     """
-    Shodan Scanner for V-XENT Framework.
-    Automates host discovery, info retrieval, and exploit search.
+    Shodan Scanner module for V-XENT Framework.
+    Provides methods to search for targets and retrieve detailed host information.
     """
     
     def __init__(self):
-        """Initialize Shodan API client with rate limiting."""
+        """
+        Initializes the Shodan API client using the key from Config.
+        """
         self.api_key = Config.SHODAN_API_KEY
         if not self.api_key:
-            logger.error("Shodan API Key no encontrada en la configuración.")
+            logger.error("Shodan API Key no encontrada. Por favor, configura SHODAN_API_KEY en el archivo .env.")
             self.api = None
         else:
-            self.api = shodan.Shodan(self.api_key)
-            logger.info("Shodan Scanner inicializado correctamente.")
+            try:
+                self.api = shodan.Shodan(self.api_key)
+                logger.info("Módulo ShodanScanner inicializado.")
+            except Exception as e:
+                logger.error(f"Error al inicializar el cliente de Shodan: {e}")
+                self.api = None
+        
+        # Rate limit settings: 1.1 seconds between requests
+        self.last_request_time = 0
+        self.rate_limit = 1.1
 
-    @sleep_and_retry
-    @limits(calls=Config.RATE_LIMIT_QUERIES, period=Config.RATE_LIMIT_PERIOD)
-    def _rate_limited_call(self, func, *args, **kwargs):
-        """Internal helper for rate-limited API calls."""
-        return func(*args, **kwargs)
+    def _wait_for_rate_limit(self):
+        """
+        Ensures a delay of at least 1.1 seconds between API calls.
+        """
+        elapsed = time.time() - self.last_request_time
+        if elapsed < self.rate_limit:
+            sleep_time = self.rate_limit - elapsed
+            logger.debug(f"Rate limiting: esperando {sleep_time:.2f} segundos...")
+            time.sleep(sleep_time)
+        self.last_request_time = time.time()
 
     def search(self, target):
         """
-        Search for a target (domain, IP, or query).
-        Returns a list of matching hosts.
+        Search Shodan for a specific target (query, domain, etc.).
+        Returns a structured JSON-compatible dictionary.
         """
         if not self.api:
-            return {"error": "API no inicializada"}
+            return {"error": "API de Shodan no configurada"}
 
+        self._wait_for_rate_limit()
+        
         try:
-            logger.info(f"Buscando target en Shodan: {target}")
-            results = self._rate_limited_call(self.api.search, target)
+            logger.info(f"Ejecutando búsqueda Shodan para: {target}")
+            results = self.api.search(target)
             
-            discovery = {
+            # Structure the results for the unified report
+            data = {
                 "total": results.get("total", 0),
                 "matches": []
             }
             
             for match in results.get("matches", []):
-                discovery["matches"].append({
+                data["matches"].append({
                     "ip": match.get("ip_str"),
                     "port": match.get("port"),
                     "hostnames": match.get("hostnames", []),
                     "org": match.get("org"),
                     "os": match.get("os"),
+                    "location": match.get("location", {}),
+                    "timestamp": match.get("timestamp"),
+                    "isp": match.get("isp"),
+                    "asn": match.get("asn"),
                     "transport": match.get("transport")
                 })
             
-            logger.info(f"Se encontraron {discovery['total']} resultados para {target}")
-            return discovery
+            logger.info(f"Búsqueda completada. {data['total']} resultados encontrados.")
+            return data
 
         except shodan.APIError as e:
-            logger.error(f"Error de API en Shodan.search: {e}")
+            logger.error(f"Error de API de Shodan: {e}")
             return {"error": str(e)}
         except Exception as e:
-            logger.error(f"Error inesperado en Shodan.search: {e}")
+            logger.error(f"Error inesperado en Shodan search: {e}")
             return {"error": str(e)}
 
     def get_host_info(self, ip):
         """
-        Retrieve detailed information about a specific IP.
-        Includes open ports, banners, and vulnerabilities.
+        Get detailed information for a specific IP address.
+        Returns a structured JSON-compatible dictionary.
         """
         if not self.api:
-            return {"error": "API no inicializada"}
+            return {"error": "API de Shodan no configurada"}
+
+        self._wait_for_rate_limit()
 
         try:
-            logger.info(f"Obteniendo información de host: {ip}")
-            host = self._rate_limited_call(self.api.host, ip)
+            logger.info(f"Obteniendo información extendida para la IP: {ip}")
+            host = self.api.host(ip)
             
-            host_info = {
+            data = {
                 "ip": host.get("ip_str"),
                 "org": host.get("org"),
                 "os": host.get("os"),
                 "ports": host.get("ports", []),
                 "last_update": host.get("last_update"),
+                "tags": host.get("tags", []),
                 "vulns": host.get("vulns", []),
                 "services": []
             }
             
             for item in host.get("data", []):
-                host_info["services"].append({
+                data["services"].append({
                     "port": item.get("port"),
-                    "service": item.get("_shodan", {}).get("module"),
-                    "banner": item.get("data", "").strip()[:200] + "..." if item.get("data") else None
+                    "transport": item.get("transport"),
+                    "product": item.get("product"),
+                    "version": item.get("version"),
+                    "extrainfo": item.get("extrainfo"),
+                    "banner": item.get("data", "").strip()[:500] # Limitar banner
                 })
             
-            logger.info(f"Información de host {ip} obtenida con éxito.")
-            return host_info
+            logger.info(f"Información de host {ip} recuperada exitosamente.")
+            return data
 
         except shodan.APIError as e:
-            logger.error(f"Error de API en Shodan.get_host_info: {e}")
+            logger.error(f"Error de API de Shodan (Host Info): {e}")
             return {"error": str(e)}
         except Exception as e:
-            logger.error(f"Error inesperado en Shodan.get_host_info: {e}")
-            return {"error": str(e)}
-
-    def get_exploits(self, cve):
-        """
-        Search for exploits related to a CVE.
-        """
-        if not self.api:
-            return {"error": "API no inicializada"}
-
-        try:
-            logger.info(f"Buscando exploits para: {cve}")
-            results = self._rate_limited_call(self.api.exploits.search, cve)
-            
-            exploits = {
-                "total": results.get("total", 0),
-                "matches": []
-            }
-            
-            for match in results.get("matches", []):
-                exploits["matches"].append({
-                    "id": match.get("_id"),
-                    "source": match.get("source"),
-                    "description": match.get("description"),
-                    "platform": match.get("platform")
-                })
-            
-            logger.info(f"Se encontraron {exploits['total']} exploits para {cve}")
-            return exploits
-
-        except shodan.APIError as e:
-            logger.error(f"Error de API en Shodan.get_exploits: {e}")
-            return {"error": str(e)}
-        except Exception as e:
-            logger.error(f"Error inesperado en Shodan.get_exploits: {e}")
+            logger.error(f"Error inesperado en Shodan get_host_info: {e}")
             return {"error": str(e)}
