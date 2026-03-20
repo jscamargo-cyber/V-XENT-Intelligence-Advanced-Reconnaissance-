@@ -73,10 +73,10 @@ def run_scan(target, args, logger):
     if shodan_data or vt_data:
         correlator = ResultsCorrelator()
         intel_report = correlator.correlate(shodan_data, vt_data)
-        
-        # Task 6: Add Integrity Hash (HMAC)
-        intel_report = IntegrityManager.sign_report(intel_report)
         intel_report["version"] = Config.VERSION
+        
+        # Task 6: Add Integrity Hash (HMAC) - Should be the last field added
+        intel_report = IntegrityManager.sign_report(intel_report)
         
         # Save Outputs
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
